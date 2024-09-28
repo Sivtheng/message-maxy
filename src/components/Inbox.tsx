@@ -8,11 +8,11 @@ interface InboxProps {
 
 const Inbox: React.FC<InboxProps> = ({ users, onSelectUser }) => {
     return (
-        <div className="w-1/3 bg-gray-100 flex flex-col h-full">
-            <h2 className="text-xl font-bold p-4">Inbox</h2>
+        <div className="w-1/6 bg-gray-100 flex flex-col h-full">
+            <h2 className="text-xl font-bold p-4 text-center">Inbox</h2>
             <div className="flex-grow overflow-y-auto">
                 {users.length > 0 ? (
-                    <ul>
+                    <ul className="text-center">
                         {users.map((user) => (
                             <li
                                 key={user.uid}

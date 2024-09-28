@@ -270,3 +270,8 @@ export const onMessagesUpdate = (
         callback(messages);
     });
 };
+
+export const deleteMessage = async (messageId: string): Promise<void> => {
+    if (!db) throw new Error("Firestore is not initialized");
+    await deleteDoc(doc(db, 'messages', messageId));
+};

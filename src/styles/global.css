@@ -5,3 +5,9 @@
 html, body, #___gatsby, #gatsby-focus-wrapper {
     height: 100%;
 }
+
+html {
+    margin-left: 15%;
+    margin-right: 15%;
+    border: 2px solid #F3F4F6;
+}

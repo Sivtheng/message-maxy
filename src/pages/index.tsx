@@ -38,7 +38,7 @@ const HomePage: React.FC = () => {
       <main className="flex-grow flex overflow-hidden">
         <Inbox users={users} onSelectUser={handleSelectUser} />
         {currentUser && (
-          <ChatInterface currentUser={currentUser} selectedUser={selectedUser} />
+          <ChatInterface currentUser={currentUser} selectedUser={selectedUser} customStyles="w-5/6" />
         )}
       </main>
     </div>
