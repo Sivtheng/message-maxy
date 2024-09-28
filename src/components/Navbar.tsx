@@ -31,7 +31,11 @@ const Navbar: React.FC = () => {
                 navigate('/auth');
             } catch (error) {
                 console.error('Error deleting account:', error);
-                alert('An error occurred while deleting the account. Please try again.');
+                if (error instanceof Error) {
+                    alert(`An error occurred while deleting the account: ${error.message}`);
+                } else {
+                    alert('An unknown error occurred while deleting the account. Please try again.');
+                }
             }
         }
     };
