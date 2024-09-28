@@ -1,9 +1,10 @@
-import { getFirestore, doc, setDoc, collection, getDoc, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp, deleteDoc, limit } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser } from "firebase/auth";
+import { doc, setDoc, collection, getDoc, addDoc, serverTimestamp, getDocs, query, where, orderBy, Timestamp, deleteDoc, limit } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, deleteUser } from "firebase/auth";
 import { getFirebase } from './firebase-config';
 
 import { User as FirebaseUser } from 'firebase/auth';
+import { onSnapshot } from 'firebase/firestore';
 
 // Define CustomUser type
 export interface CustomUser extends FirebaseUser {
@@ -77,15 +78,28 @@ export const addMessage = async (message: Omit<Message, 'id' | 'timestamp'>): Pr
 };
 
 // Retrieve messages for a specific user, ordered by timestamp
-export const getMessages = async (userId: string): Promise<Message[]> => {
+export const getMessages = async (currentUserId: string, selectedUserId: string): Promise<Message[]> => {
     if (!db) return [];
     const messagesRef = collection(db, 'messages');
-    const q = query(messagesRef,
-        where('receiverID', '==', userId),
-        orderBy('timestamp', 'desc')
+    
+    const q1 = query(messagesRef,
+        where('receiverID', '==', selectedUserId),
+        where('senderID', '==', currentUserId),
+        orderBy('timestamp', 'asc')
     );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    
+    const q2 = query(messagesRef,
+        where('receiverID', '==', currentUserId),
+        where('senderID', '==', selectedUserId),
+        orderBy('timestamp', 'asc')
+    );
+    
+    const [snapshot1, snapshot2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    
+    const messages1 = snapshot1.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    const messages2 = snapshot2.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+    
+    return [...messages1, ...messages2].sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
 };
 
 // Upload a media file to Firebase Storage
@@ -234,4 +248,25 @@ export const getAllUsers = async (currentUserId: string, limitCount: number = 20
     return querySnapshot.docs
         .map(doc => ({ ...doc.data(), uid: doc.id } as User))
         .filter(user => user.uid !== currentUserId);
+};
+
+export const onMessagesUpdate = (
+    currentUserId: string,
+    selectedUserId: string,
+    callback: (messages: Message[]) => void
+) => {
+    if (!db) return () => {};
+
+    const messagesRef = collection(db, 'messages');
+    const q = query(
+        messagesRef,
+        where('senderID', 'in', [currentUserId, selectedUserId]),
+        where('receiverID', 'in', [currentUserId, selectedUserId]),
+        orderBy('timestamp', 'asc')
+    );
+
+    return onSnapshot(q, (snapshot) => {
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+        callback(messages);
+    });
 };

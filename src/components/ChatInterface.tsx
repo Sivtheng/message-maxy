@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Message, getMessages, sendMessageWithMedia } from '../utils/firebase';
+import React, { useState, useEffect, KeyboardEvent, useRef } from 'react';
+import { User, Message, addMessage, onMessagesUpdate } from '../utils/firebase';
 
 interface ChatInterfaceProps {
     currentUser: User;
@@ -9,28 +9,45 @@ interface ChatInterfaceProps {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentUser, selectedUser }) => {
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
     useEffect(() => {
-        if (selectedUser) {
-            const fetchMessages = async () => {
-                const fetchedMessages = await getMessages(currentUser.uid);
-                setMessages(fetchedMessages.filter(
-                    (msg) => msg.senderID === selectedUser.uid || msg.receiverID === selectedUser.uid
-                ));
-            };
-            fetchMessages();
+        if (selectedUser && currentUser) {
+            const unsubscribe = onMessagesUpdate(currentUser.uid, selectedUser.uid, (updatedMessages) => {
+                setMessages(updatedMessages);
+            });
+
+            return () => unsubscribe();
         }
     }, [selectedUser, currentUser]);
 
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
+
     const handleSendMessage = async () => {
         if (newMessage.trim() && selectedUser) {
-            await sendMessageWithMedia(currentUser.uid, selectedUser.uid, newMessage, null);
-            setNewMessage('');
-            // Refresh messages
-            const updatedMessages = await getMessages(currentUser.uid);
-            setMessages(updatedMessages.filter(
-                (msg) => msg.senderID === selectedUser.uid || msg.receiverID === selectedUser.uid
-            ));
+            try {
+                await addMessage({
+                    senderID: currentUser.uid,
+                    receiverID: selectedUser.uid,
+                    content: newMessage.trim(),
+                });
+                setNewMessage('');
+            } catch (error) {
+                console.error("Error sending message:", error);
+            }
+        }
+    };
+
+    const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
         }
     };
 
@@ -38,35 +55,37 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ currentUser, selectedUser
         <div className="w-2/3 bg-white flex flex-col h-full">
             {selectedUser ? (
                 <>
-                    <h2 className="text-xl font-bold p-4">{selectedUser.name || selectedUser.email}</h2>
-                    <div className="flex-grow overflow-y-auto px-4 pb-4">
+                    <h2 className="text-xl font-bold p-4 border-b">{selectedUser.name || selectedUser.email}</h2>
+                    <div className="flex-grow overflow-y-auto p-4 space-y-4">
                         {messages.map((message) => (
                             <div
                                 key={message.id}
-                                className={`mb-2 p-2 rounded ${
-                                    message.senderID === currentUser.uid ? 'bg-blue-100 ml-auto' : 'bg-gray-100'
+                                className={`flex ${
+                                    message.senderID === currentUser.uid ? 'justify-end' : 'justify-start'
                                 }`}
                             >
-                                {message.content}
+                                <div
+                                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                        message.senderID === currentUser.uid
+                                            ? 'bg-blue-500 text-white'
+                                            : 'bg-gray-200 text-gray-800'
+                                    }`}
+                                >
+                                    {message.content}
+                                </div>
                             </div>
                         ))}
+                        <div ref={messagesEndRef} />
                     </div>
                     <div className="p-4 border-t">
-                        <div className="flex">
-                            <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                className="flex-grow border rounded-l p-2"
-                                placeholder="Type a message..."
-                            />
-                            <button
-                                onClick={handleSendMessage}
-                                className="bg-blue-500 text-white px-4 py-2 rounded-r"
-                            >
-                                Send
-                            </button>
-                        </div>
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            className="w-full border rounded p-2"
+                            placeholder="Type a message and press Enter to send..."
+                        />
                     </div>
                 </>
             ) : (
