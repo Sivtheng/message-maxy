@@ -12,13 +12,12 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ component: Component }) => 
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const app = getFirebase();
-        if (!app) {
-            console.error("Firebase app not initialized");
+        const { auth } = getFirebase();
+        if (!auth) {
+            console.error("Firebase Auth not initialized");
             return;
         }
 
-        const auth = getAuth(app);
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setIsAuthenticated(!!user);
             setIsLoading(false);

@@ -1,4 +1,7 @@
-import { initializeApp, FirebaseApp } from "firebase/app";
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
+import { Auth, getAuth } from "firebase/auth";
+import { Firestore, getFirestore } from "firebase/firestore";
+import { FirebaseStorage, getStorage } from "firebase/storage";
 
 const firebaseConfig = {
     apiKey: process.env.GATSBY_FIREBASE_API_KEY,
@@ -9,11 +12,28 @@ const firebaseConfig = {
     appId: process.env.GATSBY_FIREBASE_APP_ID
 };
 
-let app: FirebaseApp | undefined;
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
 
-export const getFirebase = (): FirebaseApp => {
-    if (!app) {
+export const initFirebase = (): { app: FirebaseApp; auth: Auth; db: Firestore; storage: FirebaseStorage } => {
+    if (!getApps().length) {
         app = initializeApp(firebaseConfig);
+    } else {
+        app = getApps()[0];
     }
-    return app;
+    
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+
+    return { app, auth, db, storage };
+};
+
+export const getFirebase = (): { app: FirebaseApp; auth: Auth; db: Firestore; storage: FirebaseStorage } => {
+    if (!app) {
+        return initFirebase();
+    }
+    return { app, auth, db, storage };
 };

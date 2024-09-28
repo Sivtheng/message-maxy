@@ -25,19 +25,23 @@ export type Message = {
 };
 
 // Initialize Firebase app, Firestore, and Storage
-const app = getFirebase();
-const db = app ? getFirestore(app) : undefined;
-const storage = app ? getStorage(app) : undefined;
-
-// Initialize Firebase Authentication
-const auth = app ? getAuth(app) : undefined;
+const { app, auth, db, storage } = getFirebase();
 
 // Add a new user to the 'users' collection
-export const addUser = async (user: Omit<User, 'id'>, userId: string): Promise<string | null> => {
-    if (!db) return null;
-    const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, { ...user, id: userId });
-    return userId;
+export const addUser = async (user: { name: string; email: string }, uid: string) => {
+    if (!db) return;
+    
+    try {
+        await setDoc(doc(db, 'users', uid), {
+            name: user.name,
+            email: user.email,
+            createdAt: serverTimestamp()
+        });
+        console.log("User added successfully");
+    } catch (error) {
+        console.error("Error adding user: ", error);
+        throw error;
+    }
 };
 
 // Retrieve a user by their ID from the 'users' collection
@@ -126,36 +130,45 @@ export const signUp = async (email: string, password: string): Promise<string | 
 
 // Sign in an existing user
 export const signIn = async (emailOrUsername: string, password: string): Promise<string | null> => {
-    if (!auth || !db) return null;
+    const { auth, db } = getFirebase();
+    if (!auth || !db) {
+        console.error("Firebase not initialized");
+        return null;
+    }
+
     try {
-        console.log("Attempting to sign in with:", emailOrUsername);
+        // First, try to sign in assuming the input is an email
+        console.log("Attempting to sign in with email:", emailOrUsername);
         const userCredential = await signInWithEmailAndPassword(auth, emailOrUsername, password);
         console.log("Sign in successful:", userCredential.user.uid);
         return userCredential.user.uid;
     } catch (error) {
         console.error("Error during email sign in:", error);
-        // If email login fails, try to find the user by username
+        
+        // If email sign-in fails, try to find the user by username
         try {
+            console.log("Attempting to find user by username:", emailOrUsername);
             const usersRef = collection(db, 'users');
             const q = query(usersRef, where('name', '==', emailOrUsername));
             const querySnapshot = await getDocs(q);
+            
             if (!querySnapshot.empty) {
                 const userDoc = querySnapshot.docs[0];
                 const userEmail = userDoc.data().email;
                 console.log("Found user by username, attempting sign in with email:", userEmail);
+                
+                // Now try to sign in with the found email
                 const userCredential = await signInWithEmailAndPassword(auth, userEmail, password);
                 console.log("Sign in successful:", userCredential.user.uid);
                 return userCredential.user.uid;
+            } else {
+                console.log("No user found with the given username");
+                throw new Error("Invalid username or password");
             }
         } catch (usernameError) {
             console.error("Error during username sign in:", usernameError);
+            throw new Error("Invalid username or password");
         }
-        if (error instanceof Error) {
-            if (error.message.includes('blocked')) {
-                throw new Error("Sign-in failed. Please disable any ad blockers or security extensions and try again.");
-            }
-        }
-        throw error; // If both email and username login fail, throw the original error
     }
 };
 
