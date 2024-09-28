@@ -229,7 +229,9 @@ export const deleteUserAuth = async (): Promise<void> => {
 export const getAllUsers = async (currentUserId: string, limitCount: number = 20): Promise<User[]> => {
     if (!db) return [];
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('id', '!=', currentUserId), limit(limitCount));
+    const q = query(usersRef, limit(limitCount));
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => doc.data() as User);
+    return querySnapshot.docs
+        .map(doc => ({ ...doc.data(), uid: doc.id } as User))
+        .filter(user => user.uid !== currentUserId);
 };
