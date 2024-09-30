@@ -1,4 +1,4 @@
-# Message Maxy
+# Message Maxy ver.1.0.0.alpha
 
 Message Maxy is a real-time chat application built with Gatsby and Firebase. It allows users to sign up, log in, and exchange messages with other users in real-time.
 
